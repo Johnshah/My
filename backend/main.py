@@ -27,6 +27,7 @@ from services.ai_orchestrator import AIOrchestrator
 from services.code_generator import CodeGenerator
 from services.build_service import BuildService
 from services.voice_service import VoiceService
+from services.deep_mode import DeepMode
 from database.db import Database
 
 # Configure logging
@@ -56,6 +57,7 @@ ai_orchestrator = AIOrchestrator()
 code_generator = CodeGenerator()
 build_service = BuildService()
 voice_service = VoiceService()
+deep_mode = DeepMode()
 
 # Pydantic models for request/response
 class GitHubRepoRequest(BaseModel):
@@ -341,6 +343,118 @@ async def _generate_from_prompt_background(
     except Exception as e:
         logger.error(f"Generation failed: {str(e)}")
         await db.update_project(project_id, {"status": "error", "error": str(e)})
+
+@app.post("/api/v1/generate/deep-mode")
+async def generate_deep_mode(request: TextPromptRequest, background_tasks: BackgroundTasks):
+    """
+    🚀 DEEP MODE - Ultra Advanced App Generation
+    
+    This mode creates production-ready apps with extreme precision:
+    - Generates each file individually with validation
+    - Advanced error checking and correction
+    - Comprehensive testing for each component
+    - Optimization passes
+    - Security audits
+    - Takes more time but produces error-free applications
+    
+    Perfect for:
+    - Production applications
+    - Complex projects
+    - When quality is critical
+    - Professional deployments
+    """
+    try:
+        logger.info(f"🚀 Starting Deep Mode generation: {request.prompt[:100]}...")
+        
+        # Create project
+        project_id = await db.create_project({
+            "source": "prompt_deep",
+            "prompt": request.prompt,
+            "app_type": request.app_type,
+            "platforms": request.platform,
+            "mode": "deep",
+            "status": "initializing"
+        })
+        
+        # Start Deep Mode generation
+        background_tasks.add_task(
+            _generate_deep_mode_background,
+            project_id,
+            request.prompt,
+            request.app_type,
+            request.platform
+        )
+        
+        return {
+            "project_id": project_id,
+            "mode": "deep",
+            "status": "initializing",
+            "message": "🚀 Deep Mode activated! AI is creating your production-ready app with extreme precision. This will take 10-20 minutes for maximum quality.",
+            "estimated_time": "10-20 minutes",
+            "features": [
+                "File-by-file generation with validation",
+                "Advanced error checking",
+                "Comprehensive testing",
+                "Performance optimization",
+                "Security audits",
+                "Complete documentation"
+            ]
+        }
+    
+    except Exception as e:
+        logger.error(f"Error starting Deep Mode: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def _generate_deep_mode_background(
+    project_id: str,
+    prompt: str,
+    app_type: str,
+    platforms: List[str]
+):
+    """Background task for Deep Mode generation"""
+    try:
+        # Progress callback
+        async def update_progress(progress_data: Dict[str, Any]):
+            await db.update_project(project_id, {
+                "progress": progress_data["progress"],
+                "progress_message": progress_data["message"],
+                "stats": progress_data["stats"]
+            })
+        
+        # Create plan
+        plan = await ai_orchestrator.create_app_plan(prompt, app_type, platforms)
+        
+        await db.update_project(project_id, {
+            "status": "planning_complete",
+            "plan": plan
+        })
+        
+        # Generate with Deep Mode
+        result = await deep_mode.generate_app_deep_mode(
+            plan,
+            project_id,
+            progress_callback=update_progress
+        )
+        
+        # Save results
+        await db.update_project(project_id, {
+            "status": "completed",
+            "project": result["project"],
+            "stats": result["stats"],
+            "quality_score": result["quality_score"],
+            "time_taken": result["time_taken"],
+            "completed_at": datetime.utcnow().isoformat()
+        })
+        
+        logger.info(f"✅ Deep Mode completed for project {project_id}")
+        logger.info(f"Quality Score: {result['quality_score']:.2f}/100")
+        
+    except Exception as e:
+        logger.error(f"Deep Mode failed: {str(e)}")
+        await db.update_project(project_id, {
+            "status": "error",
+            "error": str(e)
+        })
 
 @app.post("/api/v1/build")
 async def build_app(request: BuildRequest, background_tasks: BackgroundTasks):
