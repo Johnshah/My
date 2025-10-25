@@ -69,6 +69,9 @@ class TextPromptRequest(BaseModel):
     prompt: str
     app_type: Optional[str] = "full-stack"  # web, mobile, backend, full-stack
     platform: Optional[List[str]] = ["web"]  # web, android, ios, desktop
+    source_repo: Optional[str] = None  # GitHub repo URL if generating from repo
+    source_project_id: Optional[str] = None  # Project ID from repo analysis
+    app_complexity: Optional[str] = "standard"  # basic, standard, advanced
 
 class ProjectAnalysisResponse(BaseModel):
     project_id: str

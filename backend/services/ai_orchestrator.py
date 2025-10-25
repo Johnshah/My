@@ -227,7 +227,9 @@ class AIOrchestrator:
         self,
         prompt: str,
         app_type: str,
-        platforms: List[str]
+        platforms: List[str],
+        complexity: str = "standard",
+        source_repo_analysis: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Create a comprehensive app plan using AI agents
@@ -241,38 +243,94 @@ class AIOrchestrator:
             Detailed app plan
         """
         try:
-            logger.info(f"Creating app plan for: {prompt[:100]}...")
+            logger.info(f"Creating app plan for: {prompt[:100]}... (complexity: {complexity})")
+            
+            # Apply complexity-based enhancements
+            complexity_config = self._get_complexity_config(complexity)
+            
+            # If source repo analysis is provided, incorporate it
+            base_analysis = source_repo_analysis if source_repo_analysis else {}
             
             # Use architect agent to create the plan
             plan = {
                 "user_prompt": prompt,
                 "app_type": app_type,
                 "platforms": platforms,
-                "architecture": await self._design_architecture(prompt, app_type, platforms),
-                "tech_stack": await self._select_tech_stack(app_type, platforms),
-                "features": await self._extract_features(prompt),
+                "complexity": complexity,
+                "complexity_config": complexity_config,
+                "source_repo": source_repo_analysis.get("repo_url") if source_repo_analysis else None,
+                "architecture": await self._design_architecture(prompt, app_type, platforms, complexity),
+                "tech_stack": await self._select_tech_stack(app_type, platforms, complexity),
+                "features": await self._extract_features(prompt, complexity),
                 "components": await self._plan_components(prompt, app_type),
-                "database_schema": await self._design_database(prompt),
-                "api_endpoints": await self._design_api(prompt, app_type),
+                "database_schema": await self._design_database(prompt, complexity),
+                "api_endpoints": await self._design_api(prompt, app_type, complexity),
                 "ui_components": await self._design_ui(prompt, platforms),
                 "build_config": await self._plan_build(platforms),
                 "deployment_strategy": await self._plan_deployment(platforms),
-                "estimated_complexity": "medium",  # Will be calculated
-                "estimated_time": "5-10 minutes"
+                "estimated_complexity": complexity,
+                "estimated_time": complexity_config["estimated_time"]
             }
             
-            logger.info("App plan created successfully")
+            logger.info(f"App plan created successfully with {complexity} complexity")
             return plan
         
         except Exception as e:
             logger.error(f"Error creating app plan: {str(e)}")
             raise
     
+    def _get_complexity_config(self, complexity: str) -> Dict[str, Any]:
+        """Get configuration based on app complexity level"""
+        configs = {
+            "basic": {
+                "estimated_time": "2-5 minutes",
+                "features_level": "essential",
+                "testing_coverage": "basic",
+                "optimization_level": "minimal",
+                "security_features": ["basic_auth", "input_validation"],
+                "caching": False,
+                "realtime_features": False,
+                "advanced_db": False,
+                "monitoring": False,
+                "ci_cd": False
+            },
+            "standard": {
+                "estimated_time": "5-10 minutes",
+                "features_level": "complete",
+                "testing_coverage": "comprehensive",
+                "optimization_level": "moderate",
+                "security_features": ["jwt_auth", "input_validation", "rate_limiting", "cors"],
+                "caching": True,
+                "realtime_features": False,
+                "advanced_db": True,
+                "monitoring": True,
+                "ci_cd": False
+            },
+            "advanced": {
+                "estimated_time": "10-20 minutes",
+                "features_level": "enterprise",
+                "testing_coverage": "complete",
+                "optimization_level": "maximum",
+                "security_features": ["jwt_auth", "oauth", "input_validation", "rate_limiting", 
+                                     "cors", "encryption", "security_headers", "audit_logs"],
+                "caching": True,
+                "realtime_features": True,
+                "advanced_db": True,
+                "monitoring": True,
+                "ci_cd": True,
+                "elasticsearch": True,
+                "message_queue": True,
+                "microservices": True
+            }
+        }
+        return configs.get(complexity, configs["standard"])
+    
     async def _design_architecture(
         self,
         prompt: str,
         app_type: str,
-        platforms: List[str]
+        platforms: List[str],
+        complexity: str = "standard"
     ) -> Dict[str, Any]:
         """Design app architecture"""
         architecture = {
@@ -314,8 +372,8 @@ class AIOrchestrator:
         
         return services
     
-    async def _select_tech_stack(self, app_type: str, platforms: List[str]) -> Dict[str, List[str]]:
-        """Select appropriate tech stack"""
+    async def _select_tech_stack(self, app_type: str, platforms: List[str], complexity: str = "standard") -> Dict[str, List[str]]:
+        """Select appropriate tech stack based on complexity"""
         tech_stack = {
             "frontend": [],
             "backend": [],
@@ -324,16 +382,31 @@ class AIOrchestrator:
             "devops": []
         }
         
-        # Frontend
+        # Frontend based on complexity
         if app_type in ["full-stack", "web"] or "web" in platforms:
-            tech_stack["frontend"] = ["React", "Next.js", "TailwindCSS", "TypeScript"]
+            if complexity == "basic":
+                tech_stack["frontend"] = ["React", "TailwindCSS"]
+            elif complexity == "standard":
+                tech_stack["frontend"] = ["React", "Next.js", "TailwindCSS", "TypeScript"]
+            else:  # advanced
+                tech_stack["frontend"] = ["React", "Next.js", "TypeScript", "TailwindCSS", "Framer Motion", "React Query"]
         
-        # Backend
+        # Backend based on complexity
         if app_type in ["full-stack", "backend", "web"]:
-            tech_stack["backend"] = ["FastAPI", "Python", "Node.js", "Express"]
+            if complexity == "basic":
+                tech_stack["backend"] = ["FastAPI", "Python"]
+            elif complexity == "standard":
+                tech_stack["backend"] = ["FastAPI", "Python", "Pydantic", "SQLAlchemy"]
+            else:  # advanced
+                tech_stack["backend"] = ["FastAPI", "Python", "Celery", "Redis", "Elasticsearch", "WebSocket"]
         
-        # Database
-        tech_stack["database"] = ["PostgreSQL", "Redis", "SQLite"]
+        # Database based on complexity
+        if complexity == "basic":
+            tech_stack["database"] = ["SQLite"]
+        elif complexity == "standard":
+            tech_stack["database"] = ["PostgreSQL", "Redis"]
+        else:  # advanced
+            tech_stack["database"] = ["PostgreSQL", "Redis", "Elasticsearch", "MongoDB"]
         
         # Mobile
         if "android" in platforms or "ios" in platforms:
@@ -344,14 +417,18 @@ class AIOrchestrator:
         
         return tech_stack
     
-    async def _extract_features(self, prompt: str) -> List[Dict[str, str]]:
-        """Extract features from user prompt"""
-        # This would use AI to extract features, for now using rule-based
+    async def _extract_features(self, prompt: str, complexity: str = "standard") -> List[Dict[str, str]]:
+        """Extract features from user prompt based on complexity"""
         features = []
         
-        # Common feature patterns
+        # Base features for all complexity levels
         if "user" in prompt.lower() or "login" in prompt.lower():
-            features.append({"name": "User Authentication", "priority": "high"})
+            if complexity == "basic":
+                features.append({"name": "Simple User Authentication", "priority": "high"})
+            elif complexity == "standard":
+                features.append({"name": "User Authentication with JWT", "priority": "high"})
+            else:  # advanced
+                features.append({"name": "Advanced Authentication (JWT + OAuth + 2FA)", "priority": "high"})
         
         if "dashboard" in prompt.lower():
             features.append({"name": "Dashboard", "priority": "high"})
@@ -362,7 +439,21 @@ class AIOrchestrator:
         if "api" in prompt.lower():
             features.append({"name": "RESTful API", "priority": "high"})
         
-        # Add a generic main feature
+        # Complexity-specific features
+        if complexity == "standard" or complexity == "advanced":
+            features.append({"name": "Error Handling & Logging", "priority": "high"})
+            features.append({"name": "Data Validation", "priority": "medium"})
+            features.append({"name": "Rate Limiting", "priority": "medium"})
+        
+        if complexity == "advanced":
+            features.append({"name": "Real-time Updates (WebSocket)", "priority": "medium"})
+            features.append({"name": "Advanced Search (Elasticsearch)", "priority": "medium"})
+            features.append({"name": "Caching Layer (Redis)", "priority": "medium"})
+            features.append({"name": "Background Jobs (Celery)", "priority": "medium"})
+            features.append({"name": "Monitoring & Analytics", "priority": "low"})
+            features.append({"name": "CI/CD Pipeline", "priority": "low"})
+        
+        # Add core functionality
         features.append({"name": "Core Functionality", "priority": "high"})
         
         return features
@@ -381,8 +472,8 @@ class AIOrchestrator:
         
         return components
     
-    async def _design_database(self, prompt: str) -> Dict[str, Any]:
-        """Design database schema"""
+    async def _design_database(self, prompt: str, complexity: str = "standard") -> Dict[str, Any]:
+        """Design database schema based on complexity"""
         schema = {
             "tables": [
                 {
@@ -396,10 +487,37 @@ class AIOrchestrator:
             ],
             "relationships": []
         }
+        
+        if complexity == "standard" or complexity == "advanced":
+            # Add more columns for standard/advanced
+            schema["tables"][0]["columns"].extend([
+                {"name": "updated_at", "type": "timestamp"},
+                {"name": "last_login", "type": "timestamp"},
+                {"name": "is_active", "type": "boolean"}
+            ])
+        
+        if complexity == "advanced":
+            # Add audit and advanced features
+            schema["tables"][0]["columns"].extend([
+                {"name": "roles", "type": "array"},
+                {"name": "permissions", "type": "json"},
+                {"name": "metadata", "type": "json"}
+            ])
+            schema["tables"].append({
+                "name": "audit_logs",
+                "columns": [
+                    {"name": "id", "type": "uuid", "primary_key": True},
+                    {"name": "user_id", "type": "uuid", "foreign_key": "users.id"},
+                    {"name": "action", "type": "string"},
+                    {"name": "timestamp", "type": "timestamp"},
+                    {"name": "metadata", "type": "json"}
+                ]
+            })
+        
         return schema
     
-    async def _design_api(self, prompt: str, app_type: str) -> List[Dict[str, str]]:
-        """Design API endpoints"""
+    async def _design_api(self, prompt: str, app_type: str, complexity: str = "standard") -> List[Dict[str, str]]:
+        """Design API endpoints based on complexity"""
         if app_type == "frontend":
             return []
         
@@ -411,6 +529,22 @@ class AIOrchestrator:
             {"method": "PUT", "path": "/api/v1/items/{id}", "description": "Update item"},
             {"method": "DELETE", "path": "/api/v1/items/{id}", "description": "Delete item"}
         ]
+        
+        if complexity == "standard" or complexity == "advanced":
+            endpoints.extend([
+                {"method": "GET", "path": "/api/v1/items/search", "description": "Search items"},
+                {"method": "POST", "path": "/api/v1/items/bulk", "description": "Bulk create"},
+                {"method": "GET", "path": "/api/v1/stats", "description": "Get statistics"}
+            ])
+        
+        if complexity == "advanced":
+            endpoints.extend([
+                {"method": "GET", "path": "/api/v1/analytics", "description": "Analytics data"},
+                {"method": "WS", "path": "/ws/realtime", "description": "WebSocket real-time updates"},
+                {"method": "GET", "path": "/api/v1/export", "description": "Export data"},
+                {"method": "POST", "path": "/api/v1/import", "description": "Import data"}
+            ])
+        
         return endpoints
     
     async def _design_ui(self, prompt: str, platforms: List[str]) -> List[Dict[str, str]]:
