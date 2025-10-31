@@ -81,13 +81,29 @@
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+- **Python 3.10+** (for backend)
+- **Node.js 18+** and **npm** (for frontend)
+- **Git**
+- **Redis** (optional, for background tasks)
+- **PostgreSQL** (optional, SQLite used by default)
+
 ### One-Command Start (Linux/Mac/Termux)
 
 ```bash
 git clone https://github.com/Johnshah/My.git
 cd My
+chmod +x start.sh
 ./start.sh
 ```
+
+The script will:
+1. Install Python dependencies
+2. Install Node.js dependencies
+3. Initialize database
+4. Start backend (FastAPI) on http://localhost:8000
+5. Start frontend (Next.js) on http://localhost:3000
 
 Open browser: **http://localhost:3000**
 
@@ -186,6 +202,100 @@ docker-compose up --build
 ```
 
 Access at: **http://localhost:3000**
+
+---
+
+## 🤖 AI Models & Configuration
+
+### Cloud-First Approach (GenSpark-Style)
+
+**My** is designed to work with FREE cloud AI services for unlimited generation:
+
+#### 1. Hugging Face (Recommended - FREE)
+
+```bash
+# Get your API key from https://huggingface.co/settings/tokens
+export HUGGINGFACE_API_KEY="hf_your_key_here"
+
+# Or add to backend/.env
+echo "HUGGINGFACE_API_KEY=hf_your_key_here" >> backend/.env
+```
+
+**Supported Models:**
+- `bigcode/starcoder` - Code generation
+- `openai/whisper-large-v3` - Speech-to-text
+- `stabilityai/stable-diffusion-xl-base-1.0` - Image generation
+
+#### 2. Replicate (Optional - Pay as you go)
+
+```bash
+# Get API key from https://replicate.com/account/api-tokens
+export REPLICATE_API_TOKEN="r8_your_key_here"
+```
+
+#### 3. Local Models (Offline Mode)
+
+**Install Ollama (Recommended for Offline):**
+
+```bash
+# Linux/Mac
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Start Ollama
+ollama serve
+
+# Download code generation models
+ollama pull deepseek-coder:6.7b  # 4GB - Fast
+ollama pull codellama:7b          # 4GB - Quality
+ollama pull codellama:13b         # 7GB - Best Quality (needs 16GB RAM)
+```
+
+**Configuration Priority:**
+1. ✅ Ollama (local, fastest, offline)
+2. ✅ Transformers (local, GPU-accelerated)
+3. ✅ Hugging Face API (cloud, free tier)
+4. ✅ Replicate API (cloud, pay-as-you-go)
+5. ✅ Template fallback (always works)
+
+### Environment Variables
+
+Create `backend/.env`:
+
+```bash
+# Required for cloud processing (FREE)
+HUGGINGFACE_API_KEY=hf_your_key_here
+
+# Optional cloud services
+REPLICATE_API_TOKEN=r8_your_key_here
+OPENAI_API_KEY=sk-your_key_here  # Optional
+ANTHROPIC_API_KEY=sk-ant-your_key_here  # Optional
+
+# ElevenLabs for voice (optional)
+ELEVENLABS_API_KEY=your_key_here
+
+# Security
+ENCRYPTION_SECRET_KEY=your_secret_key_here
+
+# Database (optional - defaults to SQLite)
+DATABASE_URL=postgresql://user:pass@localhost/mydb
+
+# Redis (optional - for background jobs)
+REDIS_URL=redis://localhost:6379/0
+```
+
+### Model Download Status
+
+Check available models:
+
+```bash
+# Via CLI
+cd backend
+python -m services.model_manager --list
+
+# Via Web UI
+# Go to http://localhost:3000/models
+# View available models and download status
+```
 
 ---
 
